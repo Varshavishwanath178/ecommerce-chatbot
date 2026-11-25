@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5f7fb">
+  <title>ShopAssist AI — Customer Support</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17233c;
+      --muted: #748099;
+      --line: #e7ebf2;
+      --surface: #fff;
+      --canvas: #f5f7fb;
+      --brand: #6558e8;
+      --brand-dark: #5145d2;
+      --mint: #e6f8f2;
+      --shadow: 0 18px 55px rgba(34, 48, 82, .09);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse at 75% 4%, rgba(216, 226, 255, .55), transparent 35%),
+        var(--canvas);
+      font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+
+    .app-shell {
+      width: min(1120px, calc(100% - 48px));
+      min-height: min(800px, calc(100vh - 64px));
+      margin: 32px auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 292px;
+      overflow: hidden;
+      border: 1px solid rgba(226, 231, 240, .9);
+      border-radius: 22px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .chat-panel { min-width: 0; display: flex; flex-direction: column; }
+    .topbar {
+      min-height: 82px;
+      padding: 18px 26px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand-lockup, .agent-info, .online-state { display: flex; align-items: center; }
+    .brand-lockup { gap: 12px; }
+    .brand-mark {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 14px;
+      color: #fff;
+      background: linear-gradient(145deg, #8277fa, #5c50df);
+      box-shadow: 0 7px 16px rgba(101, 88, 232, .24);
+      font-size: 21px;
+    }
+    .brand-name { margin: 0; font-size: 16px; font-weight: 750; letter-spacing: -.3px; }
+    .brand-caption { margin: 1px 0 0; color: var(--muted); font-size: 12px; }
+    .online-state { gap: 7px; color: #637087; font-size: 12px; }
+    .online-dot { width: 8px; height: 8px; border-radius: 50%; background: #35bd8b; box-shadow: 0 0 0 3px #e7f8f1; }
+
+    .conversation {
+      flex: 1;
+      min-height: 400px;
+      padding: 27px clamp(18px, 5vw, 55px) 18px;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+    .day-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0 0 24px;
+      color: #a0a9ba;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .day-divider::before, .day-divider::after { content: ""; height: 1px; flex: 1; background: var(--line); }
+    .message-row { display: flex; gap: 10px; margin: 0 0 22px; align-items: flex-start; }
+    .message-row.user { justify-content: flex-end; }
+    .avatar {
+      flex: 0 0 30px;
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      color: #fff;
+      background: #ecebff;
+      font-size: 15px;
+    }
+    .bot .avatar { color: #fff; background: linear-gradient(145deg, #8277fa, #5c50df); }
+    .message-content { max-width: min(76%, 470px); }
+    .message-row.user .message-content { display: flex; flex-direction: column; align-items: flex-end; }
+    .bubble {
+      padding: 12px 15px;
+      border: 1px solid #edf0f5;
+      border-radius: 4px 16px 16px 16px;
+      color: #39465e;
+      background: #f8f9fc;
+      overflow-wrap: anywhere;
+    }
+    .user .bubble {
+      border: 0;
+      border-radius: 16px 4px 16px 16px;
+      color: #fff;
+      background: var(--brand);
+    }
+    .bubble p { margin: 0; }
+    .bubble p + p { margin-top: 9px; }
+    .message-time { margin: 5px 3px 0; color: #a0a9ba; font-size: 10px; }
+    .meta-badge {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin: 7px 0 0 1px;
+    }
+    .meta-chip {
+      padding: 2px 7px;
+      border: 1px solid #e8e8fa;
+      border-radius: 99px;
+      color: #6a61cb;
+      background: #f5f4ff;
+      font-size: 10px;
+      line-height: 1.5;
+      white-space: nowrap;
+    }
+    .meta-chip.sentiment-positive { color: #238263; border-color: #d9f0e7; background: #f0faf6; }
+    .meta-chip.sentiment-negative { color: #b35a45; border-color: #f3e0da; background: #fff7f4; }
+    .inline-order {
+      margin-top: 11px;
+      padding: 12px 13px;
+      border: 1px solid #e9eaf4;
+      border-radius: 12px;
+      background: #fff;
+    }
+    .inline-order strong { display: block; color: var(--ink); font-size: 13px; }
+    .inline-order span { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
+
+    .quick-area { padding: 5px clamp(18px, 5vw, 55px) 15px 95px; }
+    .quick-label { margin: 0 0 9px; color: #8c96aa; font-size: 11px; font-weight: 650; }
+    .quick-replies { display: flex; flex-wrap: wrap; gap: 8px; }
+    .quick-reply {
+      padding: 7px 11px;
+      border: 1px solid #e5e7f3;
+      border-radius: 10px;
+      color: #545d76;
+      background: #fff;
+      font-size: 12px;
+      transition: border-color .15s, background .15s, transform .15s;
+    }
+    .quick-reply:hover { border-color: #b9b3fa; background: #f8f7ff; transform: translateY(-1px); }
+
+    .composer-wrap { padding: 0 clamp(18px, 5vw, 55px) 22px 95px; }
+    .composer {
+      min-height: 54px;
+      padding: 6px 7px 6px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid #e3e7ef;
+      border-radius: 15px;
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(30, 43, 76, .035);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .composer:focus-within { border-color: #aaa3f5; box-shadow: 0 0 0 3px rgba(101, 88, 232, .1); }
+    .composer input { flex: 1; min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; }
+    .composer input::placeholder { color: #a0a8b8; }
+    .send-button {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 12px;
+      color: #fff;
+      background: var(--brand);
+      transition: background .15s, transform .15s;
+    }
+    .send-button:hover { background: var(--brand-dark); transform: translateY(-1px); }
+    .send-button:focus-visible, .quick-reply:focus-visible { outline: 3px solid #c9c4ff; outline-offset: 2px; }
+    .send-button svg { width: 18px; height: 18px; }
+    .composer-hint { margin: 8px 0 0; color: #a0a8b8; font-size: 10px; text-align: center; }
+
+    .details-panel {
+      padding: 29px 20px;
+      border-left: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+    .details-heading { margin: 0; font-size: 14px; font-weight: 750; letter-spacing: -.15px; }
+    .details-subtitle { margin: 4px 0 20px; color: var(--muted); font-size: 12px; }
+    .order-card {
+      margin-bottom: 10px;
+      padding: 13px;
+      border: 1px solid #e9edf3;
+      border-radius: 13px;
+      background: #fff;
+    }
+    .order-top { display: flex; justify-content: space-between; gap: 6px; align-items: center; }
+    .order-id { color: #4e5870; font-size: 11px; font-weight: 750; letter-spacing: .02em; }
+    .status-pill { padding: 3px 7px; border-radius: 99px; color: #267c61; background: #eaf8f2; font-size: 9px; font-weight: 700; }
+    .status-pill.transit { color: #986a18; background: #fff5df; }
+    .item-name { margin: 9px 0 0; color: var(--ink); font-size: 12px; font-weight: 650; }
+    .order-meta { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+    .help-card {
+      margin-top: 23px;
+      padding: 14px;
+      border: 1px solid #e4e6fb;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #f4f3ff, #f8faff);
+    }
+    .help-icon { font-size: 18px; }
+    .help-card strong { display: block; margin-top: 7px; font-size: 12px; }
+    .help-card p { margin: 4px 0 0; color: #727d94; font-size: 11px; line-height: 1.55; }
+    .typing { display: inline-flex; gap: 4px; padding: 4px 1px; }
+    .typing span { width: 5px; height: 5px; border-radius: 50%; background: #9b94e8; animation: pulse 1s infinite ease-in-out; }
+    .typing span:nth-child(2) { animation-delay: .15s; }
+    .typing span:nth-child(3) { animation-delay: .3s; }
+    @keyframes pulse { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+    @media (max-width: 760px) {
+      .app-shell { width: min(100% - 20px, 620px); min-height: calc(100vh - 20px); margin: 10px auto; grid-template-columns: 1fr; border-radius: 18px; }
+      .details-panel { display: none; }
+      .topbar { min-height: 72px; padding: 14px 18px; }
+      .conversation { min-height: 330px; padding: 22px 17px 12px; }
+      .quick-area { padding: 4px 17px 13px 57px; }
+      .composer-wrap { padding: 0 17px 16px 57px; }
+      .message-content { max-width: 84%; }
+    }
+    @media (max-width: 420px) {
+      .online-state { font-size: 0; gap: 0; }
+      .quick-reply { padding: 7px 9px; font-size: 11px; }
+      .message-content { max-width: 88%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell" aria-label="ShopAssist AI customer support">
+    <section class="chat-panel" aria-label="Chat">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true">✦</div>
+          <div>
+            <h1 class="brand-name">ShopAssist AI</h1>
+            <p class="brand-caption">Your shopping sidekick</p>
+          </div>
+        </div>
+        <div class="online-state"><span class="online-dot" aria-hidden="true"></span> Here to help</div>
+      </header>
+
+      <div class="conversation" id="conversation" role="log" aria-live="polite" aria-relevant="additions">
+        <div class="day-divider"><span>Today</span></div>
+      </div>
+
+      <div class="quick-area">
+        <p class="quick-label">Popular questions</p>
+        <div class="quick-replies" aria-label="Quick reply suggestions">
+          <button class="quick-reply" type="button" data-message="Track my order">📦 Track Order</button>
+          <button class="quick-reply" type="button" data-message="What is your return policy?">↩️ Return Policy</button>
+          <button class="quick-reply" type="button" data-message="I lost an item from my order">🔎 Lost Item</button>
+          <button class="quick-reply" type="button" data-message="Check my refund status">💳 Refund Status</button>
+        </div>
+      </div>
+
+      <div class="composer-wrap">
+        <form class="composer" id="chat-form">
+          <input id="chat-input" type="text" autocomplete="off" aria-label="Type your message" placeholder="Ask me anything about your order…" maxlength="500">
+          <button class="send-button" type="submit" aria-label="Send message">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 3 10.8 13.2M21 3l-6.5 18-3.7-7.8L3 9.5 21 3Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </form>
+        <p class="composer-hint">ShopAssist AI can help with orders, returns, and more</p>
+      </div>
+    </section>
+
+    <aside class="details-panel" aria-label="Sample order information">
+      <h2 class="details-heading">Your recent orders</h2>
+      <p class="details-subtitle">Try asking about any sample order</p>
+      <div id="order-list"></div>
+      <div class="help-card">
+        <span class="help-icon" aria-hidden="true">💬</span>
+        <strong>Smart support, made simple</strong>
+        <p>Tell me what you need in your own words. Include an order ID for a more specific answer.</p>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    "use strict";
+
+    const orders = {
+      ORD101: {
+        item: "Wireless Headphones",
+        delivery: "Delivered",
+        deliveryDetail: "Delivered Nov 22",
+        refund: "No refund requested"
+      },
+      ORD102: {
+        item: "Ceramic Coffee Set",
+        delivery: "In transit",
+        deliveryDetail: "Expected Nov 28",
+        refund: "Not requested"
+      },
+      ORD103: {
+        item: "Running Shoes",
+        delivery: "Delivered",
+        deliveryDetail: "Delivered Nov 20",
+        refund: "Refund processed"
+      }
+    };
+
+    const intentTerms = {
+      "Order Tracking": ["track", "tracking", "where", "order", "delivery", "deliver", "shipping", "shipped", "arrive", "eta", "status"],
+      "Returns": ["return", "returns", "policy", "exchange", "send", "back", "eligible", "window"],
+      "Lost Items": ["lost", "missing", "never", "package", "parcel"],
+      "Refunds": ["refund", "refunded", "money", "reimburse", "credited", "credit", "payment"],
+      "Damaged Items": ["damaged", "broken", "cracked", "defective", "faulty", "wrong", "damage"]
+    };
+    const positiveWords = new Set(["thanks", "thank", "great", "good", "awesome", "love", "perfect", "happy", "helpful", "excellent", "wonderful"]);
+    const negativeWords = new Set(["angry", "bad", "broken", "cancel", "disappointed", "frustrated", "hate", "late", "lost", "missing", "terrible", "upset", "wrong", "damaged", "annoyed", "ridiculous"]);
+    const conversation = document.getElementById("conversation");
+    const chatInput = document.getElementById("chat-input");
+
+    function tokenize(text) {
+      return text.toLowerCase().match(/[a-z0-9]+(?:'[a-z]+)?/g) || [];
+    }
+
+    function detectIntent(text, tokens) {
+      const paddedText = ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, " ")} `;
+      const scores = Object.fromEntries(Object.keys(intentTerms).map(intent => [intent, 0]));
+      for (const [intent, terms] of Object.entries(intentTerms)) {
+        for (const term of terms) {
+          if (tokens.includes(term)) scores[intent] += term.length > 5 ? 2 : 1;
+        }
+      }
+      if (/\b(damaged|broken|cracked|defective|faulty)\b/.test(paddedText)) scores["Damaged Items"] += 3;
+      if (/\b(lost|missing|never received|not received|didn't arrive|did not arrive)\b/.test(paddedText)) scores["Lost Items"] += 2;
+      if (/\b(refund|refunded|money back|reimburse)\b/.test(paddedText)) scores.Refunds += 2;
+
+      const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+      if (ranked[0][1] === 0) return { intent: "General Support", confidence: 68 };
+      const [intent, score] = ranked[0];
+      const secondScore = ranked[1][1];
+      const confidence = Math.min(98, Math.round(68 + score * 5 + Math.min(score - secondScore, 3) * 4));
+      return { intent, confidence };
+    }
+
+    function detectSentiment(tokens) {
+      let positive = 0;
+      let negative = 0;
+      for (const token of tokens) {
+        if (positiveWords.has(token)) positive += 1;
+        if (negativeWords.has(token)) negative += 1;
+      }
+      if (negative > positive) return "Frustrated / Negative";
+      if (positive > negative) return "Positive";
+      return "Neutral";
+    }
+
+    function extractOrderId(text) {
+      const match = text.match(/\bORD[\s-]?(\d{3})\b/i);
+      return match ? `ORD${match[1]}`.toUpperCase() : null;
+    }
+
+    function analyze(text) {
+      const tokens = tokenize(text);
+      return {
+        tokens,
+        ...detectIntent(text, tokens),
+        sentiment: detectSentiment(tokens),
+        orderId: extractOrderId(text)
+      };
+    }
+
+    function renderOrders() {
+      const list = document.getElementById("order-list");
+      list.innerHTML = Object.entries(orders).map(([id, order]) => `
+        <article class="order-card">
+          <div class="order-top">
+            <span class="order-id">${id}</span>
+            <span class="status-pill ${order.delivery === "In transit" ? "transit" : ""}">${order.delivery}</span>
+          </div>
+          <p class="item-name">${order.item}</p>
+          <p class="order-meta">${order.deliveryDetail} · ${order.refund}</p>
+        </article>`).join("");
+    }
+
+    function orderCardText(id, order) {
+      const card = document.createElement("div");
+      card.className = "inline-order";
+      const title = document.createElement("strong");
+      title.textContent = `${id} · ${order.item}`;
+      const delivery = document.createElement("span");
+      delivery.textContent = `Delivery: ${order.delivery} — ${order.deliveryDetail}`;
+      const refund = document.createElement("span");
+      refund.textContent = `Refund: ${order.refund}`;
+      card.append(title, delivery, refund);
+      return card;
+    }
+
+    function addBotResponse(text, analysis, order) {
+      const row = document.createElement("div");
+      row.className = "message-row bot";
+      const avatar = document.createElement("div");
+      avatar.className = "avatar";
+      avatar.setAttribute("aria-hidden", "true");
+      avatar.textContent = "✦";
+      const content = document.createElement("div");
+      content.className = "message-content";
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      const paragraph = document.createElement("p");
+      paragraph.textContent = text;
+      bubble.appendChild(paragraph);
+      if (order) bubble.appendChild(orderCardText(analysis.orderId, order));
+      const badge = document.createElement("div");
+      badge.className = "meta-badge";
+      badge.setAttribute("aria-label", `Detected intent ${analysis.intent}, sentiment ${analysis.sentiment}, confidence ${analysis.confidence} percent`);
+      const sentimentClass = analysis.sentiment === "Positive" ? "sentiment-positive" :
+        analysis.sentiment === "Frustrated / Negative" ? "sentiment-negative" : "";
+      for (const label of [`Intent · ${analysis.intent}`, `Sentiment · ${analysis.sentiment}`, `Confidence · ${analysis.confidence}%`]) {
+        const chip = document.createElement("span");
+        chip.className = `meta-chip ${label.startsWith("Sentiment") ? sentimentClass : ""}`;
+        chip.textContent = label;
+        badge.appendChild(chip);
+      }
+      content.append(bubble, badge);
+      row.append(avatar, content);
+      conversation.appendChild(row);
+      conversation.scrollTop = conversation.scrollHeight;
+    }
+
+    function buildResponse(analysis) {
+      const order = analysis.orderId ? orders[analysis.orderId] : null;
+      if (analysis.orderId && !order) {
+        return { text: `I couldn't find ${analysis.orderId} in the sample orders. Please check the ID and try ORD101, ORD102, or ORD103.`, order: null };
+      }
+      switch (analysis.intent) {
+        case "Order Tracking":
+          return order
+            ? { text: `${analysis.orderId} is currently ${order.delivery.toLowerCase()}.`, order }
+            : { text: "I can look that up for you. Please include an order ID such as ORD101, ORD102, or ORD103.", order: null };
+        case "Returns":
+          return { text: "Most items can be returned within 30 days of delivery if they’re unused and in their original packaging. Start a return from your order details, and we’ll guide you through the next steps.", order };
+        case "Lost Items":
+          if (order && order.delivery !== "Delivered") {
+            return { text: `Your ${order.item} is still on its way, with an estimated delivery of ${order.deliveryDetail.replace("Expected ", "")}. If it doesn’t arrive by then, message me and I’ll help with next steps.`, order };
+          }
+          return { text: "I’m sorry something is missing. Please check the packaging and delivery location first. If it’s still missing, share your order ID so we can help investigate.", order };
+        case "Refunds":
+          return order
+            ? { text: `The refund status for ${analysis.orderId} is: ${order.refund}.`, order }
+            : { text: "I can check that for you. Please send your order ID (for example, ORD103) and I’ll look up its refund status.", order: null };
+        case "Damaged Items":
+          return { text: "I’m sorry your item arrived damaged. Keep the item and packaging, then share your order ID so we can help arrange a replacement or return.", order };
+        default:
+          return { text: "I’m here to help with order tracking, returns, missing or damaged items, and refunds. What can I help you with?", order: null };
+      }
+    }
+
+    function handleMessage(rawText) {
+      const text = rawText.trim();
+      if (!text) return;
+      const analysis = analyze(text);
+      addMessage(text, "user", analysis);
+      const response = buildResponse(analysis);
+      window.setTimeout(() => addBotResponse(response.text, analysis, response.order), 260);
+    }
+
+    document.getElementById("chat-form").addEventListener("submit", event => {
+      event.preventDefault();
+      const text = chatInput.value;
+      if (!text.trim()) return;
+      chatInput.value = "";
+      handleMessage(text);
+    });
+
+    document.querySelectorAll(".quick-reply").forEach(button => {
+      button.addEventListener("click", () => handleMessage(button.dataset.message || ""));
+    });
+
+    renderOrders();
+    const greeting = analyze("Hello! How can I help you today?");
+    addBotResponse("Hi there! 👋 I’m ShopAssist, your virtual shopping assistant. I can help track an order, explain returns, find a missing item, or check a refund. What can I do for you?", greeting, null);
+  </script>
+</body>
+</html>
